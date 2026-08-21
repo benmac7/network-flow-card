@@ -5,7 +5,7 @@ Add following to resources.yaml:
     type: module
 
 TO DO:
-1. Add offline identification - colour changes, opacity change etc
+1. Add offline identification - colour changes, opacity change, animation etc
 2. Add backhaul speed and type - adjust flow lines (dash vs solid) based on wifi vs wired
 3. Add ability to identify APs as main devices
 4. Tidy up menus, clean up colour selections
