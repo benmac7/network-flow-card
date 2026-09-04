@@ -14,9 +14,6 @@ your existing sensors and device trackers.
 
 ![Network Flow Card screenshot](docs/screenshot.png)
 
-> Replace the image above with your own screenshot — see
-> [Contributing](#contributing) for suggestions on what to include.
-
 ## Features
 
 - **Internet node** — ping, jitter, download/upload speed with animated flow
