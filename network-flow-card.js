@@ -1,5 +1,5 @@
 /**
- * NETWORK-FLOW-CARD v1.6.2
+ * NETWORK-FLOW-CARD v1.7.0
  * A power-flow-card-plus style custom visual card for Home Assistant
  * featuring internet, router, LAN, Wi-Fi access points, and multi-row individual device monitoring.
  *
@@ -18,7 +18,7 @@ import {
 } from "https://unpkg.com/lit-element@2.4.0/lit-element.js?module";
 
 console.info(
-  "%c NETWORK-FLOW-CARD %c v1.6.2 ",
+  "%c NETWORK-FLOW-CARD %c v1.7.0 ",
   "color: white; background: #3b82f6; font-weight: 700;",
   "color: #3b82f6; background: white; font-weight: 700;"
 );
@@ -29,10 +29,6 @@ const DEFAULT_ACCESS_POINT = {
   name: "",
   icon: "mdi:wifi",
   devices_icon: "mdi:devices",
-  circle_size: 72,
-  icon_size: 24,
-  devices_circle_size: 56,
-  devices_icon_size: 20,
   is_primary: false,
   show_backhaul_icon: true,
   entities: {
@@ -61,8 +57,6 @@ const DEFAULT_ACCESS_POINT = {
 const DEFAULT_INDIVIDUAL_DEVICE = {
   entity: "",
   icon: "mdi:devices",
-  circle_size: 42,
-  icon_size: 20,
   colors: {
     circle: "var(--primary-color)",
     icon: "var(--primary-color)",
@@ -84,6 +78,12 @@ const DEFAULT_CONFIG = {
   primary_badge_icon_size: 12,
   primary_badge_show_tiered: false,
   primary_badge_show_flat: true,
+  ap_circle_size: 72,
+  ap_icon_size: 24,
+  ap_devices_circle_size: 56,
+  ap_devices_icon_size: 20,
+  individual_device_circle_size: 42,
+  individual_device_icon_size: 20,
   internet: {
     name: "",
     entity: "",
@@ -682,7 +682,7 @@ class NetworkFlowCard extends LitElement {
           <div class="individual-devices-row">
             ${devices.map((dev) => {
               const online = isDeviceOnline(hass, dev.entity);
-              const size = dev.circle_size ?? 42;
+              const size = config.individual_device_circle_size ?? 42;
               const circleColor = online
                 ? (dev.colors?.circle || "var(--primary-color)")
                 : (dev.colors?.offline_circle || dev.colors?.circle || "var(--error-color)");
@@ -700,7 +700,7 @@ class NetworkFlowCard extends LitElement {
                   <div class="circle" style="border-color:${circleColor}">
                     <ha-icon
                       .icon=${dev.icon || "mdi:devices"}
-                      style="color:${iconColor};--mdc-icon-size:${dev.icon_size ?? 20}px"
+                      style="color:${iconColor};--mdc-icon-size:${config.individual_device_icon_size ?? 20}px"
                     ></ha-icon>
                   </div>
                 </div>
@@ -917,7 +917,7 @@ class NetworkFlowCard extends LitElement {
     const primaryApLabel = primaryApItem
       ? getCircleLabel(primaryApItem.ap.name, primaryApItem.apEntityState, "AP")
       : "";
-    const primaryApSize = primaryApItem ? (primaryApItem.ap.circle_size ?? 72) : 72;
+    const primaryApSize = this._config.ap_circle_size ?? 72;
     const primaryApHasBandwidth = primaryApItem
       ? !!(primaryApItem.ap.entities.download || primaryApItem.ap.entities.upload)
       : false;
@@ -1062,7 +1062,7 @@ class NetworkFlowCard extends LitElement {
                   <ha-icon
                     class="${primaryApOffline ? "icon-pulse" : ""}"
                     .icon=${primaryApOffline ? "mdi:exclamation-thick" : (primaryApItem.ap.icon || "mdi:wifi")}
-                    style="color:${primaryApIconColor};--mdc-icon-size:${primaryApItem.ap.icon_size ?? 24}px"
+                    style="color:${primaryApIconColor};--mdc-icon-size:${this._config.ap_icon_size ?? 24}px"
                   ></ha-icon>
                   <span class="circle-value">${primaryApLabel}</span>
                 </div>
@@ -1080,7 +1080,7 @@ class NetworkFlowCard extends LitElement {
                     const devOffline =
                       primaryApOffline ||
                       isEntityUnavailable(hass, primaryApItem.ap.entities.connected_devices);
-                    const devCircleSize = primaryApItem.ap.devices_circle_size ?? 56;
+                    const devCircleSize = this._config.ap_devices_circle_size ?? 56;
                     const devCircleColor = devOffline
                       ? primaryApItem.ap.colors.devices_offline_circle || "var(--error-color)"
                       : primaryApItem.ap.colors.devices_circle;
@@ -1108,7 +1108,7 @@ class NetworkFlowCard extends LitElement {
                           <ha-icon
                             class="${devOffline ? "icon-pulse" : ""}"
                             .icon=${devOffline ? "mdi:exclamation-thick" : (primaryApItem.ap.devices_icon || "mdi:devices")}
-                            style="color:${devIconColor};--mdc-icon-size:${primaryApItem.ap.devices_icon_size ?? 20}px"
+                            style="color:${devIconColor};--mdc-icon-size:${this._config.ap_devices_icon_size ?? 20}px"
                           ></ha-icon>
                           <span class="circle-value">
                             ${primaryApItem.devicesState ? roundVal(primaryApItem.devicesState.value) : "-"}
@@ -1210,7 +1210,7 @@ class NetworkFlowCard extends LitElement {
         ${apData.map(
           (item, idx) => {
             const apLabel = getCircleLabel(item.ap.name, item.apEntityState, "AP");
-            const apSize = item.ap.circle_size ?? 72;
+            const apSize = this._config.ap_circle_size ?? 72;
             const apOffline = routerOffline || isEntityUnavailable(hass, item.ap.entity);
             const apCircleColor = apOffline
               ? item.ap.colors.offline_circle || "var(--error-color)"
@@ -1225,7 +1225,7 @@ class NetworkFlowCard extends LitElement {
                 @click=${() => this._handleMoreInfo(item.ap.entity)}
               >
                 <div class="circle ${apOffline ? "circle-pulse" : ""}" style="border-color:${apCircleColor}; --pulse-color:${apCircleColor};">
-                  <ha-icon class="${apOffline ? "icon-pulse" : ""}" .icon=${apOffline ? "mdi:exclamation-thick" : (item.ap.icon || "mdi:wifi")} style="color:${apIconColor};--mdc-icon-size:${item.ap.icon_size ?? 24}px"></ha-icon>
+                  <ha-icon class="${apOffline ? "icon-pulse" : ""}" .icon=${apOffline ? "mdi:exclamation-thick" : (item.ap.icon || "mdi:wifi")} style="color:${apIconColor};--mdc-icon-size:${this._config.ap_icon_size ?? 24}px"></ha-icon>
                   <span class="circle-value">${apLabel}</span>
                 </div>
                 ${primaryApLayout === "flat" && item.ap.is_primary && primaryBadgeShowFlat
@@ -1263,7 +1263,7 @@ class NetworkFlowCard extends LitElement {
           }
         )}
         ${apData.map((item, idx) => {
-          const devCircleSize = item.ap.devices_circle_size ?? 56;
+          const devCircleSize = this._config.ap_devices_circle_size ?? 56;
           const apLineOffline = routerOffline || isEntityUnavailable(hass, item.ap.entity);
           const devOffline = apLineOffline || (item.hasDevices && isEntityUnavailable(hass, item.ap.entities.connected_devices));
           if (item.hasDevices && !apLineOffline) {
@@ -1287,7 +1287,7 @@ class NetworkFlowCard extends LitElement {
                     <ha-icon
                       class="${devOffline ? "icon-pulse" : ""}"
                       .icon=${devOffline ? "mdi:exclamation-thick" : (item.ap.devices_icon || "mdi:devices")}
-                      style="color:${devIconColor};--mdc-icon-size:${item.ap.devices_icon_size ?? 20}px"
+                      style="color:${devIconColor};--mdc-icon-size:${this._config.ap_devices_icon_size ?? 20}px"
                     ></ha-icon>
                     <span class="circle-value">
                       ${item.devicesState ? roundVal(item.devicesState.value) : "-"}
@@ -1383,7 +1383,7 @@ class NetworkFlowCard extends LitElement {
                   : null;
               }
               const devOffline = routerOffline || isEntityUnavailable(hass, primaryApItem.ap.entities.connected_devices);
-              const devCircleSize = primaryApItem.ap.devices_circle_size ?? 56;
+              const devCircleSize = this._config.ap_devices_circle_size ?? 56;
               const devCircleColor = devOffline
                 ? primaryApItem.ap.colors.devices_offline_circle || "var(--error-color)"
                 : primaryApItem.ap.colors.devices_circle;
@@ -1413,7 +1413,7 @@ class NetworkFlowCard extends LitElement {
                     <ha-icon
                       class="${devOffline ? "icon-pulse" : ""}"
                       .icon=${devOffline ? "mdi:exclamation-thick" : (primaryApItem.ap.devices_icon || "mdi:devices")}
-                      style="color:${devIconColor};--mdc-icon-size:${primaryApItem.ap.devices_icon_size ?? 20}px"
+                      style="color:${devIconColor};--mdc-icon-size:${this._config.ap_devices_icon_size ?? 20}px"
                     ></ha-icon>
                     <span class="circle-value">
                       ${primaryApItem.devicesState ? roundVal(primaryApItem.devicesState.value) : "-"}
@@ -2176,8 +2176,6 @@ class NetworkFlowCardEditor extends LitElement {
         ></ha-entity-picker>
 
         ${this._renderInput("Internet Name Override (Optional)", internet.name, "internet.name")}
-        ${this._renderSlider("Internet Circle Size", internet.circle_size, "internet.circle_size", 40, 120)}
-        ${this._renderSlider("Internet Icon Size", internet.icon_size, "internet.icon_size", 12, 64)}
 
         <ha-icon-picker
           .label=${"Main Icon"}
@@ -2306,8 +2304,6 @@ class NetworkFlowCardEditor extends LitElement {
         ></ha-entity-picker>
 
         ${this._renderInput("Router Name Override (Optional)", router.name, "router.name")}
-        ${this._renderSlider("Router Circle Size", router.circle_size, "router.circle_size", 40, 120)}
-        ${this._renderSlider("Router Icon Size", router.icon_size, "router.icon_size", 12, 64)}
 
         <ha-icon-picker
           .label=${"Router Icon"}
@@ -2353,9 +2349,6 @@ class NetworkFlowCardEditor extends LitElement {
           .value=${lan.icon || "mdi:lan"}
           @value-changed=${(e) => this._valueChanged(e, "lan.icon")}
         ></ha-icon-picker>
-
-        ${this._renderSlider("LAN Circle Size", lan.circle_size, "lan.circle_size", 30, 90)}
-        ${this._renderSlider("LAN Icon Size", lan.icon_size, "lan.icon_size", 10, 48)}
 
         <div class="sub-header">Colors</div>
         ${this._renderColorInput("Border Color", c.circle, "lan.colors.circle")}
@@ -2482,11 +2475,6 @@ class NetworkFlowCardEditor extends LitElement {
               ${this._renderColorInput("Backhaul Icon Color", c.backhaul_icon, `${prefix}.colors.backhaul_icon`)}
             `
           : null}
-
-        ${this._renderSlider("AP Circle Size", ap.circle_size, `${prefix}.circle_size`, 40, 120)}
-        ${this._renderSlider("AP Icon Size", ap.icon_size, `${prefix}.icon_size`, 12, 64)}
-        ${this._renderSlider("Connected Devices Circle Size", ap.devices_circle_size, `${prefix}.devices_circle_size`, 30, 90)}
-        ${this._renderSlider("Connected Devices Icon Size", ap.devices_icon_size, `${prefix}.devices_icon_size`, 10, 48)}
 
         <ha-icon-picker
           .label=${"AP Main Icon"}
@@ -2649,9 +2637,6 @@ class NetworkFlowCardEditor extends LitElement {
           @value-changed=${(e) => this._valueChanged(e, `${prefix}.icon`)}
         ></ha-icon-picker>
 
-        ${this._renderSlider("Device Circle Size", dev.circle_size, `${prefix}.circle_size`, 20, 70)}
-        ${this._renderSlider("Device Icon Size", dev.icon_size, `${prefix}.icon_size`, 10, 40)}
-
         <div class="sub-header">Colors</div>
         ${this._renderColorInput("Online Border Color", c.circle, `${prefix}.colors.circle`)}
         ${this._renderColorInput("Online Icon Color", c.icon, `${prefix}.colors.icon`)}
@@ -2741,6 +2726,20 @@ class NetworkFlowCardEditor extends LitElement {
         ${this._renderColorInput("Badge Outline Color", this._config.primary_badge_outline_color, "primary_badge_outline_color")}
         ${this._renderSlider("Badge Size", this._config.primary_badge_size, "primary_badge_size", 12, 40)}
         ${this._renderSlider("Badge Icon Size", this._config.primary_badge_icon_size, "primary_badge_icon_size", 8, 28)}
+
+        <div class="sub-header">Sizes</div>
+        ${this._renderSlider("Internet Circle Size", this._config.internet?.circle_size, "internet.circle_size", 40, 120)}
+        ${this._renderSlider("Internet Icon Size", this._config.internet?.icon_size, "internet.icon_size", 12, 64)}
+        ${this._renderSlider("Router Circle Size", this._config.router?.circle_size, "router.circle_size", 40, 120)}
+        ${this._renderSlider("Router Icon Size", this._config.router?.icon_size, "router.icon_size", 12, 64)}
+        ${this._renderSlider("LAN Circle Size", this._config.lan?.circle_size, "lan.circle_size", 30, 90)}
+        ${this._renderSlider("LAN Icon Size", this._config.lan?.icon_size, "lan.icon_size", 10, 48)}
+        ${this._renderSlider("AP Circle Size", this._config.ap_circle_size, "ap_circle_size", 40, 120)}
+        ${this._renderSlider("AP Icon Size", this._config.ap_icon_size, "ap_icon_size", 12, 64)}
+        ${this._renderSlider("Connected Devices Circle Size", this._config.ap_devices_circle_size, "ap_devices_circle_size", 30, 90)}
+        ${this._renderSlider("Connected Devices Icon Size", this._config.ap_devices_icon_size, "ap_devices_icon_size", 10, 48)}
+        ${this._renderSlider("Individual Device Circle Size", this._config.individual_device_circle_size, "individual_device_circle_size", 20, 70)}
+        ${this._renderSlider("Individual Device Icon Size", this._config.individual_device_icon_size, "individual_device_icon_size", 10, 40)}
 
         <div class="sub-header">Behaviors & Timing</div>
         <div class="toggle-row">
