@@ -3,7 +3,8 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*.*.*'
+      - 'v*.*.*-*'
 
 permissions:
   contents: write
@@ -23,7 +24,7 @@ jobs:
           cache: 'npm'
 
       - name: Install Dependencies
-        run: npm ci
+        run: npm install
 
       - name: Build Bundled Script
         run: npm run build
@@ -41,7 +42,7 @@ jobs:
           files: dist/network-flow-card.js
           name: Release ${{ github.ref_name }}
           draft: false
-          prerelease: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
           generate_release_notes: true
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}˝
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
