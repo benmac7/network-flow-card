@@ -1,48 +1,33 @@
-name: Build and Release
+name: Build and Release Custom Card
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'
-      - 'v*.*.*-*'
-
-permissions:
-  contents: write
+  release:
+    types: [published]
 
 jobs:
-  build-and-release:
+  build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: 20
 
-      - name: Install Dependencies
+      - name: Install dependencies
         run: npm install
 
-      - name: Build Bundled Script
+      - name: Bundle Lit dependency into card
         run: npm run build
 
-      - name: Verify Dist File
-        run: |
-          if [ ! -f dist/network-flow-card.js ]; then
-            echo "Error: dist/network-flow-card.js was not generated!"
-            exit 1
-          fi
-
-      - name: Create GitHub Release
+      - name: Upload bundled JavaScript file to Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/network-flow-card.js
-          name: Release ${{ github.ref_name }}
-          draft: false
-          prerelease: ${{ contains(github.ref_name, '-') }}
-          generate_release_notes: true
+          files: network-flow-card.js
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
