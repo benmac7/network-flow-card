@@ -10,12 +10,7 @@
  * https://github.com/YOUR_GITHUB_USERNAME/network-flow-card
  */
 
-import {
-  LitElement,
-  html,
-  css,
-  svg
-} from "https://unpkg.com/lit-element@2.4.0/lit-element.js?module";
+import { LitElement, html, css, svg } from 'lit';
 
 console.info(
   "%c NETWORK-FLOW-CARD %c v2.5.0 ",
