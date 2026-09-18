@@ -27,7 +27,7 @@ const t=globalThis,i$1=t=>t,s$1=t.trustedTypes,e=s$1?s$1.createPolicy("lit-html"
 /**
  * NETWORK-FLOW-CARD v3.1.0
  * A power-flow-card-plus style custom visual card for Home Assistant
- * featuring internet, router, LAN, Wi-Fi access points, and multi-row client monitoring.
+ * featuring internet, router, LAN, Wi-Fi access points, and multi-row individual device monitoring.
  *
  * Visual style inspired by power-flow-card-plus by flixlix:
  * https://github.com/flixlix/power-flow-card-plus
@@ -594,20 +594,23 @@ function setPathValue(obj, path, value) {
   return newObj;
 }
 
-// Parsed entity states are cached by Home Assistant's individual state
-// object identity. HA keeps unchanged entity state objects stable across
-// top-level hass snapshots, so unchanged entities stay cached even when a
-// different tracked sensor updates. WeakMap allows replaced state objects
-// to be garbage-collected automatically.
+// Parsed entity-state objects are requested from many different render
+// helpers. Cache them per hass object so an entity is parsed/formatted at
+// most once for a given Home Assistant update. WeakMap keeps old hass
+// snapshots collectible, while the stateObj identity check also makes the
+// cache safe if a frontend ever reuses the top-level hass object.
 const ENTITY_STATE_CACHE = new WeakMap();
 
 function getEntityState(hass, entityId) {
-  if (!hass || !entityId) return null;
-  const stateObj = hass.states?.[entityId];
-  if (!stateObj) return null;
-
-  const cached = ENTITY_STATE_CACHE.get(stateObj);
-  if (cached) return cached;
+  if (!hass || !entityId || !hass.states[entityId]) return null;
+  const stateObj = hass.states[entityId];
+  let cache = ENTITY_STATE_CACHE.get(hass);
+  if (!cache) {
+    cache = new Map();
+    ENTITY_STATE_CACHE.set(hass, cache);
+  }
+  const cached = cache.get(entityId);
+  if (cached && cached.stateObj === stateObj) return cached;
 
   const numValue = parseFloat(stateObj.state);
   const parsed = {
@@ -617,7 +620,7 @@ function getEntityState(hass, entityId) {
     unit: stateObj.attributes.unit_of_measurement || "",
     name: stateObj.attributes.friendly_name || entityId
   };
-  ENTITY_STATE_CACHE.set(stateObj, parsed);
+  cache.set(entityId, parsed);
   return parsed;
 }
 
@@ -719,10 +722,7 @@ function getDeviceGroupName(hass, dev, groupBy) {
 // in the order its group name was first encountered.
 function groupIndividualDevices(hass, devices, groupBy) {
   const order = [];
-  // Null-prototype dictionary prevents special keys such as __proto__ or
-  // constructor from colliding with Object.prototype if an integration
-  // exposes an unusual SSID/AP/group label.
-  const map = Object.create(null);
+  const map = {};
   devices.forEach((dev) => {
     const name = getDeviceGroupName(hass, dev, groupBy) || "Unknown";
     if (!map[name]) {
@@ -821,7 +821,7 @@ function isGuestDevice(hass, entityId) {
 const TPLINK_PLATFORMS = ["tplink_deco", "tplink_router"];
 
 function tplinkBuildDeviceEntityMap(hass) {
-  const map = Object.create(null);
+  const map = {};
   for (const [entityId, entry] of Object.entries(hass.entities || {})) {
     if (!entry?.device_id) continue;
     (map[entry.device_id] ||= []).push(entityId);
@@ -1072,7 +1072,7 @@ function findFieldConflicts(existingFields, incomingFields) {
 }
 
 function groupEntitiesByDevice(hass, entityIds) {
-  const groups = Object.create(null);
+  const groups = {};
   const order = [];
   for (const eid of entityIds) {
     const deviceId = hass.entities?.[eid]?.device_id || null;
@@ -1201,7 +1201,7 @@ function ispFindConnected(hass, entityIds) {
 function scanIspIntegration(hass) {
   if (!hass?.entities) return [];
 
-  const byPlatform = Object.create(null);
+  const byPlatform = {};
   for (const [entityId, entry] of Object.entries(hass.entities)) {
     if (ISP_PLATFORMS.includes(entry.platform)) (byPlatform[entry.platform] ||= []).push(entityId);
   }
@@ -1286,7 +1286,7 @@ function scanProxmoxIntegration(hass) {
   if (!hass?.entities || !hass?.devices) return [];
 
   const nodeCandidates = [];
-  const containersByParent = Object.create(null);
+  const containersByParent = {};
 
   for (const [entityId, entry] of Object.entries(hass.entities)) {
     if (entry.platform !== PROXMOX_PLATFORM) continue;
@@ -1707,8 +1707,8 @@ function centeredBadgeStyle(position) {
 // badge in a corner stays at stackIndex 0 (normal position) and later
 // ones fan outward from there.
 function computeBadgeStacks(items) {
-  const counts = Object.create(null);
-  const result = Object.create(null);
+  const counts = {};
+  const result = {};
   items.forEach((item) => {
     if (!item.visible) return;
     const idx = counts[item.location] || 0;
@@ -2694,7 +2694,7 @@ class NetworkFlowCard extends i {
       ? (dev.colors?.icon || "var(--pink-color)")
       : (dev.colors?.offline_icon || "var(--error-color)");
 
-    const displayName = dev.name || hass?.states?.[dev.entity]?.attributes?.friendly_name || dev.entity || "Client";
+    const displayName = dev.name || hass?.states?.[dev.entity]?.attributes?.friendly_name || dev.entity || "Device";
 
     return b`
       <div
@@ -2804,10 +2804,6 @@ class NetworkFlowCard extends i {
   }
 
   _backhaulBadge(ap, hass) {
-    // The Primary AP is the root of the wireless topology, so it does not
-    // have an upstream AP backhaul to display. Never show a backhaul badge
-    // for it, even if a backhaul entity or legacy setting is configured.
-    if (ap?.is_primary) return null;
     if (ap.show_backhaul_icon === false) return null;
     const entityId = ap.entities?.backhaul_type;
     if (!entityId || !hass || !hass.states[entityId]) return null;
@@ -4757,7 +4753,7 @@ window.customCards = window.customCards || [];
 window.customCards.push({
   type: "network-flow-card",
   name: "Network Flow Card",
-  description: "A power-flow-card-plus style visual for internet, router, LAN, Wi-Fi access points, and multi-row monitored clients.",
+  description: "A power-flow-card-plus style visual for internet, router, LAN, Wi-Fi access points, and multi-row monitored individual devices.",
   preview: false
 });
 
@@ -4768,7 +4764,7 @@ const MENU_ITEMS = [
   { key: "switch", title: "Switch", icon: "mdi:switch", summary: "Optional element between Router/Gateway and Nodes, PoE" },
   { key: "security", title: "Security", icon: "mdi:shield-lock", summary: "VPN, Firewall, DNS Filtering, and Reverse Proxy badges, target, colors" },
   { key: "nodes", title: "Nodes", icon: "mdi:wifi", summary: "AP, Switch (with fed APs/Switches), or Homelab nodes, PoE" },
-  { key: "individual_devices", title: "Clients", icon: "mdi:devices", summary: "Client icons & colors, grouping by SSID/VLAN/AP" },
+  { key: "individual_devices", title: "Clients", icon: "mdi:devices", summary: "Device icons & colors, grouping by SSID/VLAN/AP" },
   { key: "advanced", title: "Advanced", icon: "mdi:cog", summary: "Layout, animation & sizes" }
 ];
 
@@ -4803,25 +4799,18 @@ class NetworkFlowCardEditor extends i {
     this._ispScanMessage = "";
     this._discoveredNodes = null;
     this._discoveredRouters = null;
-    this._discoveredRoutersPage = 0;
     this._discoveredSpeedtestServices = null;
-    this._discoveredSpeedtestPage = 0;
     this._discoveredIspServices = null;
-    this._discoveredIspPage = 0;
     this._discoveredNodesSelected = new Set();
     this._discoveredNodesPage = 0;
     this._discoveredNodesFilterSource = "";
     this._discoveredNodesFilterType = "";
     this._discoveredDevicesPage = 0;
     this._discoveredDevicesFilter = "";
-    this._devsPage = 0;
     this._discoveredAdGuard = null;
-    this._discoveredAdGuardPage = 0;
     this._adguardScanMessage = "";
     this._discoveredContainers = null;
     this._discoveredContainersSelected = new Set();
-    this._discoveredContainersPage = 0;
-    this._discoveredContainersFilter = "";
     this._containersScanMessage = "";
   }
 
@@ -5309,57 +5298,37 @@ class NetworkFlowCardEditor extends i {
           Re-scan Everything
         </button>
 
-        <div class="sub-header" style="margin-top:16px; display:flex; align-items:center; justify-content:space-between;">
-          <span>Internet &middot; Speedtest</span>
-          ${this._config.internet?.entities?.ping || this._config.internet?.entities?.jitter || this._config.internet?.entities?.download || this._config.internet?.entities?.upload
-            ? b`<ha-icon-button @click=${() => this._removeAllSpeedtest()} title="Remove All"><ha-icon icon="mdi:delete-sweep" style="color:var(--error-color);"></ha-icon></ha-icon-button>`
-            : null}
-        </div>
-        ${this._discoveredSpeedtestServices !== null
-          ? this._renderDiscoveredSpeedtestList()
-          : b`<p style="color:var(--secondary-text-color); font-size:0.9em;">No scan run yet.</p>`}
-
-        <div class="sub-header" style="margin-top:16px; display:flex; align-items:center; justify-content:space-between;">
-          <span>Internet &middot; ISP</span>
-          ${this._config.internet?.entities?.billing_total || this._config.internet?.entities?.billing_remaining || this._config.internet?.entities?.total_download || this._config.internet?.entities?.total_upload
-            ? b`<ha-icon-button @click=${() => this._removeAllIsp()} title="Remove All"><ha-icon icon="mdi:delete-sweep" style="color:var(--error-color);"></ha-icon></ha-icon-button>`
-            : null}
-        </div>
-        ${this._discoveredIspServices !== null
-          ? this._renderDiscoveredIspList()
-          : b`<p style="color:var(--secondary-text-color); font-size:0.9em;">No scan run yet.</p>`}
-
-        <div class="sub-header" style="margin-top:16px; display:flex; align-items:center; justify-content:space-between;">
-          <span>Router / Gateway</span>
-          ${this._config.router?.entity
-            ? b`<ha-icon-button @click=${() => this._removeAllRouter()} title="Remove All"><ha-icon icon="mdi:delete-sweep" style="color:var(--error-color);"></ha-icon></ha-icon-button>`
-            : null}
-        </div>
+        <div class="sub-header" style="margin-top:16px;">Router / Gateway</div>
         ${this._discoveredRouters !== null
           ? this._renderDiscoveredRoutersList()
           : b`<p style="color:var(--secondary-text-color); font-size:0.9em;">No scan run yet.</p>`}
 
-        <div class="sub-header" style="margin-top:16px; display:flex; align-items:center; justify-content:space-between;">
-          <span>Nodes (Access Point / Switch / Homelab)</span>
-          ${nodes.length
-            ? b`<ha-icon-button @click=${() => this._removeAllNodes()} title="Remove All"><ha-icon icon="mdi:delete-sweep" style="color:var(--error-color);"></ha-icon></ha-icon-button>`
-            : null}
-        </div>
-        <p style="color:var(--secondary-text-color); font-size:0.9em; margin:0 0 8px 0;">
-          No scanner produces Switch-type nodes yet - it's included as a
-          filter option here for when one does, not a currently-active
-          category.
-        </p>
+        <div class="sub-header" style="margin-top:16px;">Nodes (Access Point / Switch / Homelab)</div>
         ${this._discoveredNodes !== null
           ? this._renderDiscoveredNodesList()
           : b`<p style="color:var(--secondary-text-color); font-size:0.9em;">No scan run yet.</p>`}
 
-        <div class="sub-header" style="margin-top:16px; display:flex; align-items:center; justify-content:space-between;">
-          <span>Homelab &middot; Container / VM</span>
-          ${homelabNode && (homelabNode.homelab?.containers || []).length
-            ? b`<ha-icon-button @click=${() => this._removeAllContainers(homelabIndex)} title="Remove All"><ha-icon icon="mdi:delete-sweep" style="color:var(--error-color);"></ha-icon></ha-icon-button>`
-            : null}
-        </div>
+        <div class="sub-header" style="margin-top:16px;">Clients</div>
+        ${this._discoveredDevices !== null
+          ? this._renderDiscoveredDevicesList()
+          : b`<p style="color:var(--secondary-text-color); font-size:0.9em;">No scan run yet.</p>`}
+
+        <div class="sub-header" style="margin-top:16px;">Internet &middot; Speedtest</div>
+        ${this._discoveredSpeedtestServices !== null
+          ? this._renderDiscoveredSpeedtestList()
+          : b`<p style="color:var(--secondary-text-color); font-size:0.9em;">No scan run yet.</p>`}
+
+        <div class="sub-header" style="margin-top:16px;">Internet &middot; ISP</div>
+        ${this._discoveredIspServices !== null
+          ? this._renderDiscoveredIspList()
+          : b`<p style="color:var(--secondary-text-color); font-size:0.9em;">No scan run yet.</p>`}
+
+        <div class="sub-header" style="margin-top:16px;">Security &middot; DNS Filtering</div>
+        ${this._discoveredAdGuard !== null
+          ? this._renderDiscoveredAdGuardList()
+          : b`<p style="color:var(--secondary-text-color); font-size:0.9em;">No scan run yet.</p>`}
+
+        <div class="sub-header" style="margin-top:16px;">Homelab &middot; Container / VM</div>
         ${homelabNode
           ? b`
               <p style="color:var(--secondary-text-color); font-size:0.9em; margin:0 0 8px 0;">
@@ -5367,12 +5336,6 @@ class NetworkFlowCardEditor extends i {
                   ? " - your first Homelab node. Open a different one directly from the Nodes page to target it instead."
                   : "."}
               </p>
-              <button class="add-btn" @click=${() => this._scanForContainers()}>
-                Scan for Container/VM
-              </button>
-              ${this._containersScanMessage
-                ? b`<p style="color:var(--secondary-text-color); font-size:0.9em; margin:4px 0 8px;">${this._containersScanMessage}</p>`
-                : null}
               ${this._discoveredContainers !== null ? this._renderDiscoveredContainersList(homelabIndex) : null}
             `
           : b`
@@ -5382,26 +5345,6 @@ class NetworkFlowCardEditor extends i {
                 specific node, so there's nothing to scan into yet.
               </p>
             `}
-
-        <div class="sub-header" style="margin-top:16px; display:flex; align-items:center; justify-content:space-between;">
-          <span>Clients</span>
-          ${(this._config.individual_devices || []).length
-            ? b`<ha-icon-button @click=${() => this._deleteAllDevices()} title="Remove All"><ha-icon icon="mdi:delete-sweep" style="color:var(--error-color);"></ha-icon></ha-icon-button>`
-            : null}
-        </div>
-        ${this._discoveredDevices !== null
-          ? this._renderDiscoveredDevicesList()
-          : b`<p style="color:var(--secondary-text-color); font-size:0.9em;">No scan run yet.</p>`}
-
-        <div class="sub-header" style="margin-top:16px; display:flex; align-items:center; justify-content:space-between;">
-          <span>Security &middot; DNS Filtering</span>
-          ${this._config.dns_entity
-            ? b`<ha-icon-button @click=${() => this._removeAllAdGuard()} title="Remove All"><ha-icon icon="mdi:delete-sweep" style="color:var(--error-color);"></ha-icon></ha-icon-button>`
-            : null}
-        </div>
-        ${this._discoveredAdGuard !== null
-          ? this._renderDiscoveredAdGuardList()
-          : b`<p style="color:var(--secondary-text-color); font-size:0.9em;">No scan run yet.</p>`}
       </div>
     `;
   }
@@ -6455,8 +6398,6 @@ class NetworkFlowCardEditor extends i {
   _scanForContainers() {
     this._discoveredContainers = [...scanPortainerContainers(this.hass), ...scanProxmoxContainers(this.hass)];
     this._discoveredContainersSelected = new Set();
-    this._discoveredContainersPage = 0;
-    this._discoveredContainersFilter = "";
     this._containersScanMessage = this._discoveredContainers.length ? "" : "No Portainer or Proxmox VM/Container entities found.";
     this.requestUpdate();
   }
@@ -6534,44 +6475,15 @@ class NetworkFlowCardEditor extends i {
 
   _renderDiscoveredContainersList(nodeIndex) {
     const existing = this._existingContainerEntities();
-    const all = this._discoveredContainers || [];
-    if (!all.length) {
+    const list = this._discoveredContainers || [];
+    if (!list.length) {
       return b`<p style="color:var(--secondary-text-color); font-size:0.9em; margin:0 0 12px;">No Portainer or Proxmox VM/Container entities found.</p>`;
     }
     const sourceLabel = { portainer: "Portainer", proxmoxve: "Proxmox VE" };
-    const sources = [...new Set(all.map((c) => c.source))];
-    const activeFilter = this._discoveredContainersFilter || "";
-    const list = activeFilter ? all.filter((c) => c.source === activeFilter) : all;
-
     const selectable = list.filter((c) => !existing.has(c.entity));
     const allSelected = selectable.length > 0 && selectable.every((c) => this._discoveredContainersSelected.has(c.entity));
 
-    const perPage = 10;
-    const page = Math.min(this._discoveredContainersPage, Math.max(0, Math.ceil(list.length / perPage) - 1));
-    const pageItems = list.slice(page * perPage, page * perPage + perPage);
-
     return b`
-      ${sources.length > 1
-        ? b`
-            <div class="toggle-row">
-              <span>Filter by integration</span>
-              <select
-                style="padding:6px 8px; border-radius:6px; border:0.5px solid var(--divider-color); background:var(--card-background-color); color:var(--primary-text-color);"
-                .value=${activeFilter}
-                @change=${(e) => {
-                  this._discoveredContainersFilter = e.target.value;
-                  this._discoveredContainersPage = 0;
-                  this.requestUpdate();
-                }}
-              >
-                <option value="">All (${all.length})</option>
-                ${sources.map(
-                  (s) => b`<option value=${s}>${sourceLabel[s] || s} (${all.filter((c) => c.source === s).length})</option>`
-                )}
-              </select>
-            </div>
-          `
-        : null}
       <div class="toggle-row">
         <span>Select All (${selectable.length} available)</span>
         <ha-switch
@@ -6580,7 +6492,7 @@ class NetworkFlowCardEditor extends i {
           @change=${() => this._toggleSelectAllContainers()}
         ></ha-switch>
       </div>
-      ${pageItems.map((c) => {
+      ${list.map((c) => {
         const already = existing.has(c.entity);
         const checked = this._discoveredContainersSelected.has(c.entity);
         return b`
@@ -6610,10 +6522,6 @@ class NetworkFlowCardEditor extends i {
                 `}
           </div>
         `;
-      })}
-      ${this._renderPager(page, list.length, perPage, (p) => {
-        this._discoveredContainersPage = p;
-        this.requestUpdate();
       })}
       <button class="add-btn" .disabled=${!this._discoveredContainersSelected.size} @click=${() => this._addSelectedContainers(nodeIndex)}>
         Add Selected (${this._discoveredContainersSelected.size})
@@ -7088,7 +6996,6 @@ class NetworkFlowCardEditor extends i {
 
   _scanForInternet() {
     this._discoveredSpeedtestServices = scanSpeedtestIntegration(this.hass);
-    this._discoveredSpeedtestPage = 0;
     this._internetScanMessage = this._discoveredSpeedtestServices.length
       ? ""
       : "No Speedtest.net or Ookla Speedtest entities found.";
@@ -7128,46 +7035,14 @@ class NetworkFlowCardEditor extends i {
     this._fireChanged();
   }
 
-  // A candidate counts as "currently applied" only by its actual entity
-  // fields (ping/jitter/download/upload) - not by ISP name, since that's
-  // plain text that could've been overwritten by hand or by an ISP-scan
-  // candidate afterward, making it an unreliable match signal.
-  _isSpeedtestCurrent(svc) {
-    const internet = this._config.internet || {};
-    const pairs = [
-      [svc.ping, internet.entities?.ping],
-      [svc.jitter, internet.entities?.jitter],
-      [svc.download, internet.entities?.download],
-      [svc.upload, internet.entities?.upload]
-    ].filter(([v]) => v);
-    return pairs.length > 0 && pairs.every(([v, cur]) => v === cur);
-  }
-
-  _removeSpeedtestSelection(svc) {
-    if (!window.confirm("Are you sure you want to remove?")) return;
-    const internet = this._config.internet || {};
-    const entities = { ...internet.entities };
-    if (svc.ping && entities.ping === svc.ping) entities.ping = "";
-    if (svc.jitter && entities.jitter === svc.jitter) entities.jitter = "";
-    if (svc.download && entities.download === svc.download) entities.download = "";
-    if (svc.upload && entities.upload === svc.upload) entities.upload = "";
-    this._config = { ...this._config, internet: { ...internet, entities } };
-    this._internetScanMessage = "Speedtest selection removed.";
-    this._fireChanged();
-  }
-
   _renderDiscoveredSpeedtestList() {
     const list = this._discoveredSpeedtestServices || [];
     if (!list.length) {
       return b`<p style="color:var(--secondary-text-color); font-size:0.9em; margin:0 0 12px;">No matching entities found.</p>`;
     }
-    const perPage = 10;
-    const page = Math.min(this._discoveredSpeedtestPage, Math.max(0, Math.ceil(list.length / perPage) - 1));
-    const pageItems = list.slice(page * perPage, page * perPage + perPage);
-
     return b`
       <div style="border:0.5px solid var(--divider-color); border-radius:8px; overflow:hidden; margin-bottom:8px;">
-        ${pageItems.map((svc) => {
+        ${list.map((svc) => {
           const found = [
             svc.ping && "Ping",
             svc.jitter && "Jitter",
@@ -7186,31 +7061,18 @@ class NetworkFlowCardEditor extends i {
                   </div>
                 </div>
               </div>
-              ${this._isSpeedtestCurrent(svc)
-                ? b`
-                    <button class="add-btn" style="margin:0; white-space:nowrap; background:var(--secondary-text-color);" @click=${() => this._removeSpeedtestSelection(svc)}>
-                      Remove
-                    </button>
-                  `
-                : b`
-                    <button class="add-btn" style="margin:0; white-space:nowrap;" @click=${() => this._selectSpeedtestService(svc)}>
-                      Select
-                    </button>
-                  `}
+              <button class="add-btn" style="margin:0; white-space:nowrap;" @click=${() => this._selectSpeedtestService(svc)}>
+                Select
+              </button>
             </div>
           `;
         })}
       </div>
-      ${this._renderPager(page, list.length, perPage, (p) => {
-        this._discoveredSpeedtestPage = p;
-        this.requestUpdate();
-      })}
     `;
   }
 
   _scanForIsp() {
     this._discoveredIspServices = scanIspIntegration(this.hass);
-    this._discoveredIspPage = 0;
     this._ispScanMessage = this._discoveredIspServices.length
       ? ""
       : "No Aussie Broadband, Starlink, or Start.ca entities found.";
@@ -7256,45 +7118,14 @@ class NetworkFlowCardEditor extends i {
     this._fireChanged();
   }
 
-  _isIspCurrent(svc) {
-    const internet = this._config.internet || {};
-    const pairs = [
-      [svc.connected, internet.entity],
-      [svc.billingTotal, internet.entities?.billing_total],
-      [svc.billingRemaining, internet.entities?.billing_remaining],
-      [svc.totalDownload, internet.entities?.total_download],
-      [svc.totalUpload, internet.entities?.total_upload]
-    ].filter(([v]) => v);
-    return pairs.length > 0 && pairs.every(([v, cur]) => v === cur);
-  }
-
-  _removeIspSelection(svc) {
-    if (!window.confirm("Are you sure you want to remove?")) return;
-    const internet = this._config.internet || {};
-    const entities = { ...internet.entities };
-    let entity = internet.entity;
-    if (svc.connected && entity === svc.connected) entity = "";
-    if (svc.billingTotal && entities.billing_total === svc.billingTotal) entities.billing_total = "";
-    if (svc.billingRemaining && entities.billing_remaining === svc.billingRemaining) entities.billing_remaining = "";
-    if (svc.totalDownload && entities.total_download === svc.totalDownload) entities.total_download = "";
-    if (svc.totalUpload && entities.total_upload === svc.totalUpload) entities.total_upload = "";
-    this._config = { ...this._config, internet: { ...internet, entity, entities } };
-    this._ispScanMessage = "ISP selection removed.";
-    this._fireChanged();
-  }
-
   _renderDiscoveredIspList() {
     const list = this._discoveredIspServices || [];
     if (!list.length) {
       return b`<p style="color:var(--secondary-text-color); font-size:0.9em; margin:0 0 12px;">No matching entities found.</p>`;
     }
-    const perPage = 10;
-    const page = Math.min(this._discoveredIspPage, Math.max(0, Math.ceil(list.length / perPage) - 1));
-    const pageItems = list.slice(page * perPage, page * perPage + perPage);
-
     return b`
       <div style="border:0.5px solid var(--divider-color); border-radius:8px; overflow:hidden; margin-bottom:8px;">
-        ${pageItems.map((svc) => {
+        ${list.map((svc) => {
           const found = [
             svc.connected && "Connected",
             svc.billingTotal && "Billing total",
@@ -7313,31 +7144,18 @@ class NetworkFlowCardEditor extends i {
                   </div>
                 </div>
               </div>
-              ${this._isIspCurrent(svc)
-                ? b`
-                    <button class="add-btn" style="margin:0; white-space:nowrap; background:var(--secondary-text-color);" @click=${() => this._removeIspSelection(svc)}>
-                      Remove
-                    </button>
-                  `
-                : b`
-                    <button class="add-btn" style="margin:0; white-space:nowrap;" @click=${() => this._selectIspService(svc)}>
-                      Select
-                    </button>
-                  `}
+              <button class="add-btn" style="margin:0; white-space:nowrap;" @click=${() => this._selectIspService(svc)}>
+                Select
+              </button>
             </div>
           `;
         })}
       </div>
-      ${this._renderPager(page, list.length, perPage, (p) => {
-        this._discoveredIspPage = p;
-        this.requestUpdate();
-      })}
     `;
   }
 
   _scanForAdGuard() {
     this._discoveredAdGuard = scanAdGuardIntegration(this.hass);
-    this._discoveredAdGuardPage = 0;
     this._adguardScanMessage = this._discoveredAdGuard.length ? "" : "No AdGuard Home entities found.";
     this.requestUpdate();
   }
@@ -7374,13 +7192,9 @@ class NetworkFlowCardEditor extends i {
       return b`<p style="color:var(--secondary-text-color); font-size:0.9em; margin:0 0 12px;">No matching entities found.</p>`;
     }
     const current = this._config.dns_entity;
-    const perPage = 10;
-    const page = Math.min(this._discoveredAdGuardPage, Math.max(0, Math.ceil(list.length / perPage) - 1));
-    const pageItems = list.slice(page * perPage, page * perPage + perPage);
-
     return b`
       <div style="border:0.5px solid var(--divider-color); border-radius:8px; overflow:hidden; margin-bottom:8px;">
-        ${pageItems.map((c) => {
+        ${list.map((c) => {
           const isCurrent = !!c.entity && c.entity === current;
           return b`
             <div class="list-item">
@@ -7408,10 +7222,6 @@ class NetworkFlowCardEditor extends i {
           `;
         })}
       </div>
-      ${this._renderPager(page, list.length, perPage, (p) => {
-        this._discoveredAdGuardPage = p;
-        this.requestUpdate();
-      })}
     `;
   }
 
@@ -7426,7 +7236,6 @@ class NetworkFlowCardEditor extends i {
     if (asusResult.routerCandidate) candidates.push(asusResult.routerCandidate);
 
     this._discoveredRouters = candidates;
-    this._discoveredRoutersPage = 0;
     this._routerScanMessage = candidates.length
       ? ""
       : "No TP-Link Router, Deco master unit, OpenWrt (LuCI), Synology SRM, or AsusRouter router found.";
@@ -7510,13 +7319,10 @@ class NetworkFlowCardEditor extends i {
       asusrouter: "AsusRouter (AiMesh)"
     };
     const current = this._config.router?.entity;
-    const perPage = 10;
-    const page = Math.min(this._discoveredRoutersPage, Math.max(0, Math.ceil(list.length / perPage) - 1));
-    const pageItems = list.slice(page * perPage, page * perPage + perPage);
 
     return b`
       <div style="border:0.5px solid var(--divider-color); border-radius:8px; overflow:hidden; margin-bottom:8px;">
-        ${pageItems.map((c) => {
+        ${list.map((c) => {
           const isCurrent = c.entity === current;
           return b`
             <div class="list-item" style="${isCurrent ? 'background:var(--accent-color); background:rgba(var(--rgb-accent-color, 3,169,244),0.1);' : ''}">
@@ -7547,10 +7353,6 @@ class NetworkFlowCardEditor extends i {
           `;
         })}
       </div>
-      ${this._renderPager(page, list.length, perPage, (p) => {
-        this._discoveredRoutersPage = p;
-        this.requestUpdate();
-      })}
     `;
   }
 
@@ -7579,84 +7381,6 @@ class NetworkFlowCardEditor extends i {
       ? ""
       : "No TP-Link Deco, Proxmox VE, or AsusRouter AiMesh nodes found.";
     this.requestUpdate();
-  }
-
-  // --- "Remove All" bulk-clear actions, one per Discover section -----
-  // Each confirms first, then clears only the fields that section
-  // itself owns - never anything more general a different section
-  // might also rely on (e.g. Speedtest/ISP's "Remove All" leave
-  // internet.entity and internet.name alone, since those are shared,
-  // fundamental fields that may have been set by hand or by a
-  // different source entirely).
-
-  _removeAllNodes() {
-    const count = (this._config.nodes || []).length;
-    if (!count) return;
-    if (!window.confirm(`Remove all ${count} node${count === 1 ? "" : "s"}? This can't be undone.`)) return;
-    this._config = { ...this._config, nodes: [] };
-    this._nodeScanMessage = "All nodes removed.";
-    this._fireChanged();
-  }
-
-  _removeAllContainers(nodeIndex) {
-    const nodes = [...(this._config.nodes || [])];
-    const node = nodes[nodeIndex];
-    if (!node || !node.homelab) return;
-    const count = (node.homelab.containers || []).length;
-    if (!count) return;
-    if (!window.confirm(`Remove all ${count} container${count === 1 ? "" : "s"}/VM(s) from this node? This can't be undone.`)) return;
-    nodes[nodeIndex] = { ...node, homelab: { ...node.homelab, containers: [] } };
-    this._config = { ...this._config, nodes };
-    this._containersScanMessage = "All containers/VMs removed from this node.";
-    this._fireChanged();
-  }
-
-  _removeAllRouter() {
-    const router = this._config.router || {};
-    if (!router.entity && !router.entities?.wan_ip && !router.entities?.lan_ip) return;
-    if (!window.confirm("Remove the Router entity and its WAN/LAN IP fields? This can't be undone.")) return;
-    const lan = this._config.lan || {};
-    this._config = {
-      ...this._config,
-      router: { ...router, entity: "", entities: { ...router.entities, wan_ip: "", lan_ip: "" } },
-      lan: { ...lan, entity: "" }
-    };
-    this._routerScanMessage = "Router removed.";
-    this._fireChanged();
-  }
-
-  _removeAllSpeedtest() {
-    const internet = this._config.internet || {};
-    const e = internet.entities || {};
-    if (!e.ping && !e.jitter && !e.download && !e.upload) return;
-    if (!window.confirm("Remove all Speedtest fields (Ping, Jitter, Download, Upload)? This can't be undone.")) return;
-    this._config = {
-      ...this._config,
-      internet: { ...internet, entities: { ...e, ping: "", jitter: "", download: "", upload: "" } }
-    };
-    this._internetScanMessage = "Speedtest fields removed.";
-    this._fireChanged();
-  }
-
-  _removeAllIsp() {
-    const internet = this._config.internet || {};
-    const e = internet.entities || {};
-    if (!e.billing_total && !e.billing_remaining && !e.total_download && !e.total_upload) return;
-    if (!window.confirm("Remove all ISP fields (Billing Total, Billing Remaining, Total Downloaded, Total Uploaded)? This can't be undone.")) return;
-    this._config = {
-      ...this._config,
-      internet: { ...internet, entities: { ...e, billing_total: "", billing_remaining: "", total_download: "", total_upload: "" } }
-    };
-    this._ispScanMessage = "ISP fields removed.";
-    this._fireChanged();
-  }
-
-  _removeAllAdGuard() {
-    if (!this._config.dns_entity) return;
-    if (!window.confirm("Remove the DNS Filtering entity? This can't be undone.")) return;
-    this._config = { ...this._config, dns_entity: "" };
-    this._adguardScanMessage = "DNS Filtering entity removed.";
-    this._fireChanged();
   }
 
   _existingNodeEntities() {
@@ -8094,7 +7818,7 @@ class NetworkFlowCardEditor extends i {
           <label class="input-label">Group By</label>
           <select
             class="native-select"
-            .value=${this._config.individual_devices_group_by || "ssid"}
+            .value=${this._config.individual_devices_group_by || "none"}
             @change=${(e) => this._handleSelectChange(e, "individual_devices_group_by")}
           >
             <option value="none">None</option>
@@ -8117,7 +7841,7 @@ class NetworkFlowCardEditor extends i {
           (a friendly name) or UniFi's "ap_mac" (a MAC address, since
           UniFi doesn't expose a friendly AP name here). Anything
           missing the relevant attribute falls into "Unknown". Override
-          any individual client's group on its own page below.
+          any individual device's group on its own page below.
         </p>
 
         ${this._config.individual_devices_group_by && this._config.individual_devices_group_by !== "none"
@@ -8206,8 +7930,46 @@ class NetworkFlowCardEditor extends i {
           "individual_device_guest_icon_bg"
         )}
 
-        <div class="sub-header">Clients</div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
+        <div class="sub-header">Devices</div>
+        ${devs.map(
+          (dev, idx) => b`
+            <div class="list-item">
+              <div class="list-item-info">
+                <ha-icon .icon=${dev.icon || "mdi:devices"} style="color:var(--primary-color);"></ha-icon>
+                <span>${dev.name || dev.entity || `Device ${idx + 1}`}</span>
+              </div>
+              <div class="list-item-actions">
+                <ha-icon-button
+                  @click=${() => this._moveDev(idx, -1)}
+                  .disabled=${idx === 0}
+                  title="Move up"
+                >
+                  <ha-icon icon="mdi:arrow-up"></ha-icon>
+                </ha-icon-button>
+                <ha-icon-button
+                  @click=${() => this._moveDev(idx, 1)}
+                  .disabled=${idx === devs.length - 1}
+                  title="Move down"
+                >
+                  <ha-icon icon="mdi:arrow-down"></ha-icon>
+                </ha-icon-button>
+                <ha-icon-button
+                  @click=${() => (this._editingDevIndex = idx)}
+                  title="Edit"
+                >
+                  <ha-icon icon="mdi:pencil"></ha-icon>
+                </ha-icon-button>
+                <ha-icon-button
+                  @click=${() => this._removeDev(idx)}
+                  title="Delete"
+                >
+                  <ha-icon icon="mdi:delete"></ha-icon>
+                </ha-icon-button>
+              </div>
+            </div>
+          `
+        )}
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
           <button class="add-btn" style="flex:1;" @click=${() => this._addDev()}>
             + Add Client (${devs.length})
           </button>
@@ -8219,56 +7981,6 @@ class NetworkFlowCardEditor extends i {
               `
             : null}
         </div>
-        ${(() => {
-          const perPage = 10;
-          const page = Math.min(this._devsPage || 0, Math.max(0, Math.ceil(devs.length / perPage) - 1));
-          const pageItems = devs.slice(page * perPage, page * perPage + perPage);
-          return b`
-            ${pageItems.map((dev, i) => {
-              const idx = page * perPage + i;
-              return b`
-                <div class="list-item">
-                  <div class="list-item-info">
-                    <ha-icon .icon=${dev.icon || "mdi:devices"} style="color:var(--primary-color);"></ha-icon>
-                    <span>${dev.name || dev.entity || `Client ${idx + 1}`}</span>
-                  </div>
-                  <div class="list-item-actions">
-                    <ha-icon-button
-                      @click=${() => this._moveDev(idx, -1)}
-                      .disabled=${idx === 0}
-                      title="Move up"
-                    >
-                      <ha-icon icon="mdi:arrow-up"></ha-icon>
-                    </ha-icon-button>
-                    <ha-icon-button
-                      @click=${() => this._moveDev(idx, 1)}
-                      .disabled=${idx === devs.length - 1}
-                      title="Move down"
-                    >
-                      <ha-icon icon="mdi:arrow-down"></ha-icon>
-                    </ha-icon-button>
-                    <ha-icon-button
-                      @click=${() => (this._editingDevIndex = idx)}
-                      title="Edit"
-                    >
-                      <ha-icon icon="mdi:pencil"></ha-icon>
-                    </ha-icon-button>
-                    <ha-icon-button
-                      @click=${() => this._removeDev(idx)}
-                      title="Delete"
-                    >
-                      <ha-icon icon="mdi:delete"></ha-icon>
-                    </ha-icon-button>
-                  </div>
-                </div>
-              `;
-            })}
-            ${this._renderPager(page, devs.length, perPage, (p) => {
-              this._devsPage = p;
-              this.requestUpdate();
-            })}
-          `;
-        })()}
 
         <div class="sub-header">Auto-Discovery (TP-Link / OpenWrt / Synology SRM / AsusRouter)</div>
         <p style="color:var(--secondary-text-color); font-size:0.9em; margin:0 0 8px 0;">
@@ -8277,11 +7989,11 @@ class NetworkFlowCardEditor extends i {
           integrations (mesh units and the router itself are excluded -
           use the Nodes and Router pages for those). Nothing is added
           automatically; review the list and select which ones you
-          want, then add them like any other client - icon, color,
+          want, then add them like any other device - icon, color,
           name, and group are all still yours to set afterward.
         </p>
         <button class="add-btn" @click=${() => this._scanIndividualDevices()}>
-          Scan for Clients
+          Scan for Devices
         </button>
         ${this._discoveredDevices !== null ? this._renderDiscoveredDevicesList() : null}
       </div>
@@ -8295,7 +8007,7 @@ class NetworkFlowCardEditor extends i {
 
     return b`
       <div class="form-section">
-        <div class="sub-header">Client</div>
+        <div class="sub-header">Device</div>
         <ha-entity-picker
           .hass=${this.hass}
           .value=${dev.entity || ""}
@@ -8320,7 +8032,7 @@ class NetworkFlowCardEditor extends i {
           ? b`
               ${this._renderInput("Group Override (Optional)", dev.group_override, `${prefix}.group_override`)}
               <p style="color:var(--secondary-text-color); font-size:0.9em; margin:0 0 8px 0;">
-                Leave blank to auto-detect the group from this client's
+                Leave blank to auto-detect the group from this device's
                 own entity attributes; set a value to force it into
                 that group regardless.
               </p>
