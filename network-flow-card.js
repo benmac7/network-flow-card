@@ -25,7 +25,7 @@ const t=globalThis,i$1=t=>t,s$1=t.trustedTypes,e=s$1?s$1.createPolicy("lit-html"
  */const s=globalThis;class i extends y$1{constructor(){super(...arguments),this.renderOptions={host:this},this._$Do=void 0;}createRenderRoot(){const t=super.createRenderRoot();return this.renderOptions.renderBefore??=t.firstChild,t}update(t){const r=this.render();this.hasUpdated||(this.renderOptions.isConnected=this.isConnected),super.update(t),this._$Do=D(r,this.renderRoot,this.renderOptions);}connectedCallback(){super.connectedCallback(),this._$Do?.setConnected(true);}disconnectedCallback(){super.disconnectedCallback(),this._$Do?.setConnected(false);}render(){return E}}i._$litElement$=true,i["finalized"]=true,s.litElementHydrateSupport?.({LitElement:i});const o=s.litElementPolyfillSupport;o?.({LitElement:i});(s.litElementVersions??=[]).push("4.2.2");
 
 /**
- * NETWORK-FLOW-CARD v3.1.2
+ * NETWORK-FLOW-CARD v3.1.3
  * A power-flow-card-plus style custom visual card for Home Assistant
  * featuring internet, router, LAN, Wi-Fi access points, and multi-row client monitoring.
  *
@@ -38,7 +38,7 @@ const t=globalThis,i$1=t=>t,s$1=t.trustedTypes,e=s$1?s$1.createPolicy("lit-html"
 
 
 console.info(
-  "%c NETWORK-FLOW-CARD %c v3.1.2 ",
+  "%c NETWORK-FLOW-CARD %c v3.1.3 ",
   "color: white; background: #3b82f6; font-weight: 700;",
   "color: #3b82f6; background: white; font-weight: 700;"
 );
