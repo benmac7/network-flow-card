@@ -24,39 +24,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build card and lazy-loaded editor
+      - name: Build card
         run: npm run build
 
       - name: Verify build output
         run: |
           test -f network-flow-card.js
-          test -f network-flow-card-editor.js
-
           echo "Main card:"
           ls -lh network-flow-card.js
-
-          echo "Editor:"
-          ls -lh network-flow-card-editor.js
-
-      - name: Create HACS release package
-        run: |
-          rm -f network-flow-card.zip
-          zip -9 network-flow-card.zip \
-            network-flow-card.js \
-            network-flow-card-editor.js
-
-      - name: Verify release package
-        run: |
-          unzip -t network-flow-card.zip
-          unzip -l network-flow-card.zip
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v3
         with:
           fail_on_unmatched_files: true
           files: |
-            network-flow-card.zip
             network-flow-card.js
-            network-flow-card-editor.js
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
