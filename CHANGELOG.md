@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented in this file.
 
-## [3.1.3]
+## [3.1.4]
 
 ### Fixed
 
