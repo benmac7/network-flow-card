@@ -11,14 +11,7 @@ All notable changes to this project are documented in this file.
   had `"zip_release": true` with a `.zip` `filename`, which HACS's
   validator rejects for this category regardless of whether the zip
   itself installs correctly. Removed `zip_release` and pointed
-  `filename` at `network-flow-card.js` instead - HACS downloads every
-  `.js` file it finds in a release's assets for a plugin repository, not
-  just the one named in `filename`, so `network-flow-card-editor.js`
-  still installs alongside it automatically. No change to `release.yml`
-  was needed: it already uploads both raw `.js` files as release assets
-  alongside the zip, which is what HACS now actually uses - the
-  minified build output continues to come from those release assets,
-  never from the repository's own (unminified) committed source.
+  `filename` at `network-flow-card.js` instead.
 
 ## [3.1.2]
 
