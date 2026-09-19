@@ -2,6 +2,31 @@
 
 All notable changes to this project are documented in this file.
 
+## [3.1.2]
+
+Fixed
+
+- **A bus made entirely of Switch nodes rendered crushed toward the
+  bottom whenever no Access Point existed anywhere on the diagram** -
+  the grid row reserved for a Fed Switch's own circle and connector was
+  sized by whether any Access Point existed (`hasAnyAp`), while the
+  content actually placed into that row was correctly gated by whether
+  an Access Point *or* a Fed Switch existed (`hasApRow`). An
+  Access-Point-free, Switch/Fed-Switch-only bus had real content
+  rendered into a row deliberately sized to 0px, squashing every Fed
+  Switch and the Clients box beneath it upward into an overlapping
+  mess. Row height now uses the same condition that gates the content.
+
+## [3.1.1]
+
+Fixed
+
+- **Router page's WAN Address Entity picker rendered as broken raw
+text (".label=WAN Address Entity @value-changed=..." visible
+directly in the editor) instead of an entity picker - introduced
+earlier in this same cycle by the info-tooltip conversion above,
+which accidentally dropped the picker's own opening
+
 ## [3.1.0]
 
 Adds Auto-Discovery for UniFi Network and TP-Link Omada across Router,
