@@ -1,6 +1,6 @@
 {
   "name": "network-flow-card",
-  "version": "3.1.7",
+  "version": "3.2.0",
   "type": "module",
   "scripts": {
     "build": "rollup network-flow-card.js --file network-flow-card.js --format es --plugin @rollup/plugin-node-resolve --plugin @rollup/plugin-terser"
