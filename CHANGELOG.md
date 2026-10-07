@@ -154,28 +154,9 @@ badge colours moving into the Summary section.
 - Tree circles are opaque, so a line never shows through a node.
 
 ### Fixed
-- The Hyperbolic tree now uses the screen's full height, as the Flat view does. Its
-  circle filled only 92% of its square stage, so the circle - and the summary and
-  details panel lined up with it - stopped short of the bottom of the screen (and
-  started low at the top). The circle now fills 98% of its stage and ends 20px
-  above the bottom of the screen, like the Flat view's panel.
-- A client's Throughput graph also works for trackers that name their speeds
-  `down_speed` / `up_speed` (such as TP-Link Router), and for clients whose own
-  device has download and upload speed sensors.
 - Speed test discovery only considers `sensor` entities of the speed test
   integrations (from the unreleased 3.3.1), so the other entities some of them
   create are no longer offered as readings.
-- The tablet layout sized to the screen height no longer overflows when the
-  dashboard's header settles after the card has been measured, and no longer
-  leaves a gap on a dashboard with no header.
-- Icons in the tree and in the details panel header sit in the middle of their
-  circle (several Material Design icons are drawn off-centre).
-- Graphs show the current reading at once and always end "now"; they no longer
-  wait for the next history fetch.
-- Dashed edges and clipped shapes in the tree no longer draw twice in
-  Chromium's software renderer.
-- Fit-to-width no longer over-shrinks the Flat diagram in newer versions of
-  Chromium.
 
 ## [3.3.0]
 
