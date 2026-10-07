@@ -100,6 +100,12 @@ badge colours moving into the Summary section.
 **Summary**
 - The summary is now a card of its own: optional **Summary** title, background
   and outline colours, and up to **six** items (it was five).
+- With no details panel beside it (switched off, or shown as a pop-up), the
+  summary's badges are **centred** across the card instead of left-aligned.
+
+**Clients**
+- **Sub-Group Width: Even** - every sub-group exactly the same width, one equal
+  column per group across the whole Clients box.
 
 **IP addresses and discovery**
 - **Managed switches and servers** can show their IP address as a pill above
@@ -130,6 +136,11 @@ badge colours moving into the Summary section.
 - **The Internet connection line follows the global Flow Line Color** (from the
   unreleased 3.3.1), like every other line on the card. It used the Internet's
   own Download and Upload line colours.
+- **Summary Position** offers **Top** and **Bottom** only. Left and Right had
+  stopped doing anything in the Hyperbolic view and the Flat view with a details
+  panel (both placed the summary as Bottom would). A Left or Right saved by an
+  older version is still shown, marked as an older setting, and the classic Flat
+  strip still honours it.
 - **Advanced** is now **Layout**, rebuilt as collapsible sections: General,
   Graph, Summary, Details Panel, and Sizing and Animations. **Show IP
   Addressing** moved from General to Graph.
@@ -143,6 +154,14 @@ badge colours moving into the Summary section.
 - Tree circles are opaque, so a line never shows through a node.
 
 ### Fixed
+- The Hyperbolic tree now uses the screen's full height, as the Flat view does. Its
+  circle filled only 92% of its square stage, so the circle - and the summary and
+  details panel lined up with it - stopped short of the bottom of the screen (and
+  started low at the top). The circle now fills 98% of its stage and ends 20px
+  above the bottom of the screen, like the Flat view's panel.
+- A client's Throughput graph also works for trackers that name their speeds
+  `down_speed` / `up_speed` (such as TP-Link Router), and for clients whose own
+  device has download and upload speed sensors.
 - Speed test discovery only considers `sensor` entities of the speed test
   integrations (from the unreleased 3.3.1), so the other entities some of them
   create are no longer offered as readings.

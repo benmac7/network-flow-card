@@ -131,7 +131,7 @@ the details panel, and choose what the Summary shows.
 | **Router/Gateway** | optional. Its **Download / Upload Speed Entity** feed the Real-time Download / Upload summary items; WAN, Secondary WAN and LAN addresses; a LAN Connected Clients count. |
 | **Core Switch** | optional, between Router and the bus, with its own Connected Clients count, an IP address pill and full PoE support. |
 | **Nodes** | the bus below is made of Nodes, freely reordered. A Node is a plain **Access Point**; a standalone **Switch**; a Switch feeding **Access Points, other Switches and/or Servers** to any depth; or a **Server** (a box running several network functions - DNS filter, VPN, reverse proxy) with any number of Containers / VMs as status badges. An Access Point can itself feed further items (a wireless mesh). Mark one AP **Primary**, and a **Backhaul Type** entity switches its uplink between solid (wired) and dashed (wireless / mesh). |
-| **Clients** | any number of device trackers in an auto-sizing box (or, in the Hyperbolic view, attached to the device they are on), each showing online / offline. Group them by SSID, VLAN, Connected Device or Device Area. Clients on a guest network get a badge automatically. |
+| **Clients** | any number of device trackers in an auto-sizing box (or, in the Hyperbolic view, attached to the device they are on), each showing online / offline. Group them by SSID, VLAN, Connected Device or Device Area, and let the sub-groups share the box evenly. Clients on a guest network get a badge automatically. |
 | **Monitoring** | Uptime Kuma, Ping, Gatus and UptimeRobot services as their own circles with an up / down / pending / maintenance badge: **External** (a dashed box above Internet), **Internal** (in the Clients box, or as a badge on any device already on the card) or **Auto**. An optional response-time badge colours by threshold. |
 | **Security** | VPN, Firewall, DNS Filtering and Reverse Proxy badges, each pointed at the Router/Gateway, Core Switch, Primary AP or a Server. A Server can choose which of them it shows. |
 | **PoE** | a summed wattage badge on the Router, Core Switch, any Switch, Access Point or Server - sourced automatically from the device's PoE entities or from a list you choose, with one colour or up to three thresholds. A **PoE Total** summary item adds them all up. |
@@ -152,7 +152,7 @@ on) and its panel shows what the card knows about it:
 | Any node | state, a **Device Page** (or **More Info**) button, live throughput, IP addresses, VPN / firewall / DNS state, and - where the device reports them - CPU, RAM, temperature, traffic, PoE power, ports up, uptime, firmware and model |
 | A device with clients | the **Clients** list, online first; tap one to jump to it |
 | A switch | its **PoE Ports**, with the watts each is delivering |
-| A client | **Client Info** - connected to, IP, MAC, SSID, VLAN, last online, signal and more - and its own Download / Upload graph if its tracker keeps speed attributes |
+| A client | **Client Info** - connected to, IP, MAC, SSID, VLAN, last online, signal and more - and its own Download / Upload graph if its tracker keeps speed attributes (such as `down_speed` / `up_speed`) or its device has speed sensors |
 | A server | CPU, memory, disk, uptime and network readings, and a **Services** list of its VMs and containers headed by a total such as "11 of 12 online" |
 | A VM or container | CPU, memory and disk readings and a CPU / Memory graph |
 
@@ -286,6 +286,8 @@ automatically.
 | `hyperbolic_layout` | `auto`, `mobile` or `tablet` arrangement |
 | `hyperbolic_fit_height`, `hyperbolic_tablet_split` | tablet: size the tree to the screen height, or set its width |
 | `hyperbolic_client_layout` | `attached` to their device, or `grouped` |
+| `summary_position` | `top` or `bottom` |
+| `individual_devices_group_layout` | Clients sub-group widths: `gaps`, `last_fill`, `widest_fits` or `even` (all the same width) |
 | `hyperbolic_node_scale`, `hyperbolic_size_*` | node sizes (all, and per type) |
 | `hyperbolic_outline_*`, `hyperbolic_background_*`, `hyperbolic_glass*` | tree circle colours and the frosted glass style |
 | `hyperbolic_offline_badge_color`, `hyperbolic_offline_line_color` | the "!" badge and dotted line of an offline node |
@@ -310,7 +312,8 @@ radius and shadows on the summary and details panel follow `--border-radius` and
 
 For deeper styling,
 [card_mod](https://github.com/thomasloven/lovelace-card-mod) works with no
-special setup:
+special setup (the [how-to guide](HOWTO.md#12-styling-with-card_mod) has a table of class names and
+ready-made examples - dashed lines, shadows, hiding text and more):
 
 ```yaml
 type: custom:network-flow-card
