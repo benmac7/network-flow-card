@@ -14,6 +14,8 @@ you already have, and open any device to see its details and history.
 
 ![Network Flow Card screenshot](docs/screenshot.png)
 
+![Network Flow Card screenshot](docs/screenshot2.png)
+
 - [Highlights](#highlights)
 - [Two ways to see your network](#two-ways-to-see-your-network)
 - [Installation](#installation)
